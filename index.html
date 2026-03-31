@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CrowdStrike Falcon POC Command Center</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='15' fill='%23060a10' stroke='%23f97316' stroke-width='2'/><circle cx='16' cy='16' r='5' fill='%23f97316'/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -189,6 +190,43 @@ a:hover{text-decoration:underline}
 /* Fade toast */
 .toast{position:fixed;bottom:24px;right:24px;background:var(--accent);color:#fff;padding:10px 20px;border-radius:8px;font-size:.8rem;z-index:999;opacity:0;transform:translateY(10px);transition:all .3s;pointer-events:none}
 .toast.show{opacity:1;transform:translateY(0)}
+
+/* Animated background grid */
+body::before{content:'';position:fixed;top:0;left:0;right:0;bottom:0;background:radial-gradient(ellipse at 20% 50%,rgba(249,115,22,.03) 0%,transparent 50%),radial-gradient(ellipse at 80% 20%,rgba(6,182,212,.03) 0%,transparent 50%);pointer-events:none;z-index:-1}
+
+/* Stat card glow on hover */
+.stat-card{transition:all .3s}
+.stat-card:hover{border-color:rgba(249,115,22,.3);box-shadow:0 0 30px rgba(249,115,22,.08)}
+
+/* Animated counter */
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+.status-pulse{display:inline-block;width:10px;height:10px;background:var(--green);border-radius:50%;margin-right:6px;animation:pulse 2s ease-in-out infinite;box-shadow:0 0 8px rgba(34,197,94,.5)}
+
+/* Footer */
+.footer{max-width:1400px;margin:0 auto;padding:24px 20px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
+.footer-text{font-size:.7rem;color:var(--muted)}
+.footer-links{display:flex;gap:16px}
+.footer-links a{font-size:.7rem;color:var(--muted);transition:color .2s}
+.footer-links a:hover{color:var(--accent);text-decoration:none}
+
+/* Keyboard hint */
+.kbd{display:inline-block;padding:2px 6px;background:var(--card-alt);border:1px solid var(--border);border-radius:4px;font-size:.65rem;color:var(--muted);font-family:'JetBrains Mono',monospace}
+
+/* Smooth card entrance */
+@keyframes cardIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.card,.stat-card,.prompt-card{animation:cardIn .4s ease backwards}
+.grid-4 > :nth-child(2){animation-delay:.05s}
+.grid-4 > :nth-child(3){animation-delay:.1s}
+.grid-4 > :nth-child(4){animation-delay:.15s}
+
+/* Print styles */
+@media print{
+  .nav,.toast,.footer,.terminal,.quick-actions,.filter-bar,.search-input,.btn-copy,.toggle-switch{display:none!important}
+  body{background:#fff;color:#000}
+  .card,.stat-card{border:1px solid #ddd;background:#f9f9f9;break-inside:avoid}
+  .section-head{-webkit-text-fill-color:#000;color:#000}
+  .report-output{border:1px solid #ddd;background:#fff;color:#000;display:block!important}
+}
 </style>
 </head>
 <body>
@@ -225,7 +263,7 @@ a:hover{text-decoration:underline}
     <div class="stat-card"><div class="stat-val">25+</div><div class="stat-label">IOA Rules</div></div>
     <div class="stat-card"><div class="stat-val">8</div><div class="stat-label">Policies</div></div>
     <div class="stat-card"><div class="stat-val">14</div><div class="stat-label">MITRE Tactics</div></div>
-    <div class="stat-card"><div class="stat-val" style="font-size:1.6rem">● Active</div><div class="stat-label">POC Status</div></div>
+    <div class="stat-card"><div class="stat-val" style="font-size:1.6rem"><span class="status-pulse"></span>Active</div><div class="stat-label">POC Status</div></div>
   </div>
 
   <div class="grid-2">
@@ -770,6 +808,18 @@ ipv4,91.215.85.100,detect,medium,Suspicious scanning IP,scanning;recon,2026-04-1
 
 </div><!-- end main -->
 
+<footer class="footer">
+  <div class="footer-text">CrowdStrike Falcon POC Command Center v1.0 &mdash; Built for enterprise client presentations</div>
+  <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+    <span class="footer-text">Navigate: <kbd class="kbd">1</kbd>-<kbd class="kbd">0</kbd> tabs &bull; <kbd class="kbd">?</kbd> help</span>
+    <div class="footer-links">
+      <a href="#" onclick="switchTab('dashboard');return false">Dashboard</a>
+      <a href="#" onclick="switchTab('report');return false">Report</a>
+      <a href="#" onclick="switchTab('terminal');return false">Terminal</a>
+    </div>
+  </div>
+</footer>
+
 <div class="toast" id="toast">Copied!</div>
 
 <script>
@@ -1268,6 +1318,60 @@ const observer = new MutationObserver(() => {
   }
 });
 observer.observe(document.getElementById('tab-mitre'), { attributes: true, attributeFilter: ['class'] });
+
+/* ========== KEYBOARD NAVIGATION ========== */
+const tabKeys = ['dashboard','pocguide','ioarules','ioc','policies','integration','mitre','prompts','terminal','report'];
+document.addEventListener('keydown', e => {
+  // Don't intercept when typing in inputs
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  const k = e.key;
+  if (k >= '1' && k <= '9') { e.preventDefault(); switchTab(tabKeys[parseInt(k)-1]); }
+  if (k === '0') { e.preventDefault(); switchTab(tabKeys[9]); }
+  if (k === '?') { showToast('Keys: 1-0 = tabs, ? = help'); }
+});
+
+/* ========== ANIMATED STAT COUNTERS ========== */
+function animateValue(el, start, end, suffix, duration) {
+  const range = end - start;
+  const startTime = performance.now();
+  function update(now) {
+    const elapsed = now - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    const current = Math.round(start + range * eased);
+    el.textContent = current + suffix;
+    if (progress < 1) requestAnimationFrame(update);
+  }
+  requestAnimationFrame(update);
+}
+
+// Animate dashboard stats on first load
+const statEls = document.querySelectorAll('.stat-val');
+if (statEls.length >= 3) {
+  animateValue(statEls[0], 0, 25, '+', 800);
+  animateValue(statEls[1], 0, 8, '', 600);
+  animateValue(statEls[2], 0, 14, '', 700);
+}
+
+/* ========== SAVE CHECKLIST TO LOCALSTORAGE ========== */
+function saveChecklist() {
+  const items = document.querySelectorAll('#checklistContainer .checklist-item');
+  const state = Array.from(items).map(i => i.classList.contains('checked'));
+  try { localStorage.setItem('cs-poc-checklist', JSON.stringify(state)); } catch(e) {}
+}
+function loadChecklist() {
+  try {
+    const state = JSON.parse(localStorage.getItem('cs-poc-checklist'));
+    if (!state) return;
+    const items = document.querySelectorAll('#checklistContainer .checklist-item');
+    state.forEach((checked, i) => { if (items[i] && checked) items[i].classList.add('checked'); });
+    updateProgress();
+  } catch(e) {}
+}
+// Patch toggleCheck to persist
+const _origToggle = window.toggleCheck;
+window.toggleCheck = function(el) { _origToggle(el); saveChecklist(); };
+loadChecklist();
 </script>
 </body>
 </html>
